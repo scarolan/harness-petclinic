@@ -1,178 +1,173 @@
-# Spring PetClinic Sample Application [![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml)
+<p align="center">
+  <img src="https://spring-petclinic.github.io/images/spring-petclinic.png" alt="Spring Petclinic" width="200">
+</p>
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/spring-projects/spring-petclinic) [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=7517918)
+<h1 align="center">Harness Petclinic</h1>
 
-## Understanding the Spring Petclinic application with a few diagrams
+<p align="center">
+  <strong>AI-Powered CI/CD with Multi-Stage Java Builds</strong><br>
+  Spring Petclinic deployed via Harness CI/CD with Gemma 4 AI security gate, multi-stage Docker builds, and canary deployments to Kubernetes.
+</p>
 
-See the presentation here:  
-[Spring Petclinic Sample Application (legacy slides)](https://speakerdeck.com/michaelisvy/spring-petclinic-sample-application?slide=20)
+---
 
-> **Note:** These slides refer to a legacy, pre–Spring Boot version of Petclinic and may not reflect the current Spring Boot–based implementation.  
-> For up-to-date information, please refer to this repository and its documentation.
+## What This Is
 
+The classic [Spring Petclinic](https://github.com/spring-projects/spring-petclinic) application, wired up with a full Harness CI/CD pipeline featuring an AI-powered code review gate using Google Gemma 4 running on-prem via Ollama. Built as a companion to [harness-demo](https://github.com/scarolan/harness-demo) to show Harness working with a Java/Spring Boot stack.
 
-## Run Petclinic locally
+**Why Petclinic?** It's the canonical Spring Boot demo app — every Java developer recognizes it. It has real controllers, JPA entities, Thymeleaf templates, and test coverage. It's not a toy.
 
-Spring Petclinic is a [Spring Boot](https://spring.io/guides/gs/spring-boot) application built using [Maven](https://spring.io/guides/gs/maven/) or [Gradle](https://spring.io/guides/gs/gradle/).
-Java 17 or later is required for the build, and the application can run with Java 17 or newer.
+## Architecture
 
-You first need to clone the project locally:
-
-```bash
-git clone https://github.com/spring-projects/spring-petclinic.git
-cd spring-petclinic
 ```
-If you are using Maven, you can start the application on the command-line as follows:
-
-```bash
-./mvnw spring-boot:run
-```
-With Gradle, the command is as follows:
-
-```bash
-./gradlew bootRun
-```
-
-You can then access the Petclinic at <http://localhost:8080/>.
-
-<img width="1042" alt="petclinic-screenshot" src="https://cloud.githubusercontent.com/assets/838318/19727082/2aee6d6c-9b8e-11e6-81fe-e889a5ddfded.png">
-
-You can, of course, run Petclinic in your favorite IDE.
-See below for more details.
-
-## Building a Container
-
-There is no `Dockerfile` in this project. You can build a container image (if you have a docker daemon) using the Spring Boot build plugin:
-
-## Running the Container Image
-
-```bash
-./mvnw spring-boot:build-image
-docker images | grep petclinic
-docker run -p 8080:8080 docker.io/library/spring-petclinic:latest
+Developer pushes code
+  --> GitHub webhook
+  --> Harness CI/CD Pipeline
+        |
+        +--> AI Code Review (Gemma 4 26B via Ollama - on-prem)
+        |      Reviews Java source for OWASP Top 10 vulnerabilities
+        |      CRITICAL security issues --> pipeline BLOCKED
+        |
+        +--> Security Gate
+        |      Reads AI verdict, enforces pass/fail
+        |
+        +--> Maven Tests (./mvnw test)
+        |
+        +--> Multi-Stage Docker Build (JDK builder -> JRE runtime)
+        |
+        +--> Canary Deploy (1 pod)
+        +--> Canary Delete
+        +--> Rolling Deploy (full rollout)
+  --> App live on Kubernetes
 ```
 
-## In case you find a bug/suggested improvement for Spring Petclinic
+## Components
 
-Our issue tracker is available [here](https://github.com/spring-projects/spring-petclinic/issues).
+| Component | Technology | Where it runs |
+|-----------|-----------|---------------|
+| Application | Spring Boot 4.1 / Java 17 | Kubernetes pod |
+| CI/CD Pipeline | Harness | SaaS control plane |
+| Build Infrastructure | Harness Delegate | Kubernetes (self-managed) |
+| AI Code Review | Gemma 4 26B QAT | On-prem via Ollama |
+| Container Build | Kaniko (multi-stage) | Kubernetes pod |
+| Container Registry | DockerHub | Cloud |
+| Source Control | GitHub | Cloud |
+| Deployment Strategy | Canary + Rolling | Kubernetes |
 
-## Database configuration
+## Features
 
-In its default configuration, Petclinic uses an in-memory database (H2) which
-gets populated at startup with data. The h2 console is exposed at `http://localhost:8080/h2-console`,
-and it is possible to inspect the content of the database using the `jdbc:h2:mem:<uuid>` URL. The UUID is printed at startup to the console.
+- **AI Security Gate**: Gemma 4 reviews every PR for OWASP Top 10 vulnerabilities — SQL/HQL injection, unsafe deserialization, mass assignment, hardcoded secrets. All caught and blocked.
+- **Multi-Stage Docker Build**: JDK 17 builder stage compiles the JAR, JRE 17 runtime stage runs it. This is where multi-stage builds actually matter — the final image drops the full JDK, Maven, and all build tools.
+- **Canary Deployments**: New versions deploy to a single canary pod first, then roll out to full replicas with automatic rollback on failure.
+- **Spring Boot Health Probes**: Kubernetes liveness and readiness probes wired to Spring Actuator endpoints (`/actuator/health/liveness`, `/actuator/health/readiness`).
+- **Git Triggers**: Pipeline runs automatically on push to main and on PR open/update.
+- **OPA Governance**: Policy enforces that every pipeline must include an AI Code Review step — can't save a pipeline without it.
 
-A similar setup is provided for MySQL and PostgreSQL if a persistent database configuration is needed. Note that whenever the database type changes, the app needs to run with a different profile: `spring.profiles.active=mysql` for MySQL or `spring.profiles.active=postgres` for PostgreSQL. See the [Spring Boot documentation](https://docs.spring.io/spring-boot/how-to/properties-and-configuration.html#howto.properties-and-configuration.set-active-spring-profiles) for more detail on how to set the active profile.
+## Why Multi-Stage Works Here (and Not in the Python Demo)
 
-You can start MySQL or PostgreSQL locally with whatever installer works for your OS or use docker:
+The [Python harness-demo](https://github.com/scarolan/harness-demo) uses a single-stage Dockerfile because Python is interpreted — the runtime needs the same packages the build uses. A multi-stage build only saves pip cache (~20MB).
 
-```bash
-docker run -e MYSQL_USER=petclinic -e MYSQL_PASSWORD=petclinic -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=petclinic -p 3306:3306 mysql:9.7
-```
+Java is different. The build needs:
+- Full JDK (compiler, build tools): ~400MB
+- Maven + dependency cache: ~300MB
 
-or
+The runtime only needs:
+- JRE: ~200MB
+- The compiled JAR: ~50MB
 
-```bash
-docker run -e POSTGRES_USER=petclinic -e POSTGRES_PASSWORD=petclinic -e POSTGRES_DB=petclinic -p 5432:5432 postgres:18.4
-```
+Multi-stage cuts the image from ~750MB to ~250MB. That's a real win.
 
-Further documentation is provided for [MySQL](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources/db/mysql/petclinic_db_setup_mysql.txt)
-and [PostgreSQL](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources/db/postgres/petclinic_db_setup_postgres.txt).
-
-Instead of vanilla `docker` you can also use the provided `docker-compose.yml` file to start the database containers. Each one has a service named after the Spring profile:
-
-```bash
-docker compose up mysql
-```
-
-or
-
-```bash
-docker compose up postgres
-```
-
-## Test Applications
-
-At development time we recommend you use the test applications set up as `main()` methods in `PetClinicIntegrationTests` (using the default H2 database and also adding Spring Boot Devtools), `MySqlTestApplication` and `PostgresIntegrationTests`. These are set up so that you can run the apps in your IDE to get fast feedback and also run the same classes as integration tests against the respective database. The MySql integration tests use Testcontainers to start the database in a Docker container, and the Postgres tests use Docker Compose to do the same thing.
-
-## Compiling the CSS
-
-There is a `petclinic.css` in `src/main/resources/static/resources/css`. It was generated from the `petclinic.scss` source, combined with the [Bootstrap](https://getbootstrap.com/) library. If you make changes to the `scss`, or upgrade Bootstrap, you will need to re-compile the CSS resources using the Maven profile "css", i.e. `./mvnw package -P css`. There is no build profile for Gradle to compile the CSS.
-
-## Working with Petclinic in your IDE
+## Running the Demo
 
 ### Prerequisites
 
-The following items should be installed in your system:
+- Docker Desktop with Kubernetes enabled
+- Ollama running with `gemma4:26b-a4b-it-qat` model
+- Harness account with delegate installed
+- GitHub and DockerHub accounts
+- Java 17+ (for local development)
 
-- Java 17 or newer (full JDK, not a JRE)
-- [Git command line tool](https://help.github.com/articles/set-up-git)
-- Your preferred IDE
-  - Eclipse with the m2e plugin. Note: when m2e is available, there is a m2 icon in `Help -> About` dialog. If m2e is
-  not there, follow the installation process [here](https://www.eclipse.org/m2e/)
-  - [Spring Tools Suite](https://spring.io/tools) (STS)
-  - [IntelliJ IDEA](https://www.jetbrains.com/idea/)
-  - [VS Code](https://code.visualstudio.com)
+### Demo Scripts
 
-### Steps
+```bash
+# Inject a JPA injection vulnerability, open a PR — watch Gemma block it
+./scripts/demo-start.sh
 
-1. On the command line run:
+# Fix the vulnerability, push — watch Gemma approve it
+./scripts/demo-fix.sh
 
-    ```bash
-    git clone https://github.com/spring-projects/spring-petclinic.git
-    ```
+# Clean up for next demo run
+./scripts/demo-reset.sh
+```
 
-1. Inside Eclipse or STS:
+### Local Development
 
-    Open the project via `File -> Import -> Maven -> Existing Maven project`, then select the root directory of the cloned repo.
+```bash
+./mvnw spring-boot:run
+# App runs on http://localhost:8080
+```
 
-    Then either build on the command line `./mvnw generate-resources` or use the Eclipse launcher (right-click on project and `Run As -> Maven install`) to generate the CSS. Run the application's main method by right-clicking on it and choosing `Run As -> Java Application`.
+### Running Tests
 
-1. Inside IntelliJ IDEA:
+```bash
+./mvnw test
+```
 
-    In the main menu, choose `File -> Open` and select the Petclinic [pom.xml](pom.xml). Click on the `Open` button.
+## Project Structure (Harness additions)
 
-    - CSS files are generated from the Maven build. You can build them on the command line `./mvnw generate-resources` or right-click on the `spring-petclinic` project then `Maven -> Generates sources and Update Folders`.
+```
+harness-petclinic/
+  src/                           # Spring Petclinic source (unchanged)
+  scripts/
+    ai_review.py                 # Gemma 4 AI code review (JSON mode)
+    demo-start.sh                # Inject JPA injection for demo
+    demo-fix.sh                  # Fix vulnerability for demo
+    demo-reset.sh                # Reset demo state
+  k8s-harness/
+    namespace.yaml               # Dedicated namespace
+    deployment.yaml              # K8s deployment with actuator probes
+    service.yaml                 # NodePort service on 30081
+  Dockerfile                     # Multi-stage: JDK builder -> JRE runtime
+  pom.xml                        # Maven build (from upstream)
+```
 
-    - A run configuration named `PetClinicApplication` should have been created for you if you're using a recent Ultimate version. Otherwise, run the application by right-clicking on the `PetClinicApplication` main class and choosing `Run 'PetClinicApplication'`.
+## Demo Vulnerability: JPA Injection
 
-1. Navigate to the Petclinic
+The demo injects a classic JPA/HQL injection into the `OwnerController`:
 
-    Visit [http://localhost:8080](http://localhost:8080) in your browser.
+```java
+// VULNERABLE — string concatenation in JPQL query
+em.createQuery("SELECT o FROM Owner o WHERE o.lastName LIKE '%" + query + "%'", Owner.class)
+```
 
-## Looking for something in particular?
+The fix uses Spring Data's built-in repository method:
 
-|Spring Boot Configuration | Class or Java property files  |
-|--------------------------|---|
-|The Main Class | [PetClinicApplication](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java) |
-|Properties Files | [application.properties](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources) |
-|Caching | [CacheConfiguration](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/java/org/springframework/samples/petclinic/system/CacheConfiguration.java) |
+```java
+// SAFE — parameterized via Spring Data
+this.owners.findByLastName(query);
+```
 
-## Interesting Spring Petclinic branches and forks
+The AI reviewer catches this as **CRITICAL: SQL/HQL Injection (A03:2021)** and blocks the pipeline.
 
-The Spring Petclinic "main" branch in the [spring-projects](https://github.com/spring-projects/spring-petclinic)
-GitHub org is the "canonical" implementation based on Spring Boot and Thymeleaf. There are
-[quite a few forks](https://spring-petclinic.github.io/docs/forks.html) in the GitHub org
-[spring-petclinic](https://github.com/spring-petclinic). If you are interested in using a different technology stack to implement the Pet Clinic, please join the community there.
+## Comparison with Python Demo
 
-## Interaction with other open-source projects
+| Aspect | harness-demo (Python) | harness-petclinic (Java) |
+|--------|----------------------|--------------------------|
+| Framework | FastAPI | Spring Boot 4.1 |
+| Language | Python 3.12 | Java 17 |
+| Docker Build | Single-stage (slim) | Multi-stage (JDK -> JRE) |
+| Image Size | ~140MB | ~250MB (down from ~750MB) |
+| AI Review Time | ~20s | ~30-45s (more source files) |
+| Test Framework | pytest | JUnit 5 / Spring Test |
+| Health Checks | Custom `/health` endpoint | Spring Actuator |
+| Demo Vulnerability | SQL injection (sqlite3) | JPA injection (EntityManager) |
+| K8s Port | 30080 | 30081 |
 
-One of the best parts about working on the Spring Petclinic application is that we have the opportunity to work in direct contact with many Open Source projects. We found bugs/suggested improvements on various topics such as Spring, Spring Data, Bean Validation and even Eclipse! In many cases, they've been fixed/implemented in just a few days.
-Here is a list of them:
+Both demos show the same Harness capabilities — AI security gate, canary deployments, pipeline templates, OPA governance — just with different tech stacks. Together they demonstrate that the platform is language-agnostic.
 
-| Name | Issue |
-|------|-------|
-| Spring JDBC: simplify usage of NamedParameterJdbcTemplate | [SPR-10256](https://github.com/spring-projects/spring-framework/issues/14889) and [SPR-10257](https://github.com/spring-projects/spring-framework/issues/14890) |
-| Bean Validation / Hibernate Validator: simplify Maven dependencies and backward compatibility |[HV-790](https://hibernate.atlassian.net/browse/HV-790) and [HV-792](https://hibernate.atlassian.net/browse/HV-792) |
-| Spring Data: provide more flexibility when working with JPQL queries | [DATAJPA-292](https://github.com/spring-projects/spring-data-jpa/issues/704) |
+---
 
-## Contributing
-
-The [issue tracker](https://github.com/spring-projects/spring-petclinic/issues) is the preferred channel for bug reports, feature requests and submitting pull requests.
-
-For pull requests, editor preferences are available in the [editor config](.editorconfig) for easy use in common text editors. Read more and download plugins at <https://editorconfig.org>. All commits must include a __Signed-off-by__ trailer at the end of each commit message to indicate that the contributor agrees to the Developer Certificate of Origin.
-For additional details, please refer to the blog post [Hello DCO, Goodbye CLA: Simplifying Contributions to Spring](https://spring.io/blog/2025/01/06/hello-dco-goodbye-cla-simplifying-contributions-to-spring).
-
-## License
-
-The Spring PetClinic sample application is released under version 2.0 of the [Apache License](https://www.apache.org/licenses/LICENSE-2.0).
+<p align="center">
+  Built with Claude Code, Harness CI/CD, and Gemma 4 via Ollama<br>
+  <em>No code left the network.</em>
+</p>
