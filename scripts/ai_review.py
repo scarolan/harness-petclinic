@@ -42,7 +42,8 @@ print("AI CODE REVIEW — Gemma 4 26B (on-prem via Ollama)")
 print("=" * 60)
 print()
 
-code_files = sorted(glob.glob("src/main/java/**/*.java", recursive=True))
+all_files = sorted(glob.glob("src/main/java/**/*.java", recursive=True))
+code_files = [f for f in all_files if "Controller" in f or "Configuration" in f or "Application" in f]
 code = ""
 for f in code_files:
     with open(f) as fh:
