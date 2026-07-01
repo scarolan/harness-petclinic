@@ -42,6 +42,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### Environment ###
+.env
+*.env
+
 ### CSS ###
 _site/
 *.css

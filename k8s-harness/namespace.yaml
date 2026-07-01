@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: harness-petclinic
+  labels:
+    app: petclinic
+    managed-by: harness
