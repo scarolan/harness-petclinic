@@ -87,9 +87,9 @@ try:
     )
     result = resp.json()
 except Exception as e:
-    print(f"WARNING: Could not reach Ollama at {OLLAMA_URL}: {e}")
-    print("Skipping AI review — proceeding to tests")
-    sys.exit(0)
+    print(f"ERROR: Could not reach Ollama at {OLLAMA_URL}: {e}")
+    print("AI review is required — cannot proceed without it.")
+    sys.exit(1)
 
 raw = result.get("response", "{}")
 tokens = result.get("eval_count", 0)
@@ -98,9 +98,9 @@ duration = round(result.get("eval_duration", 0) / 1e9, 1)
 try:
     review = json.loads(raw)
 except json.JSONDecodeError:
-    print(f"WARNING: Model returned invalid JSON, skipping review")
+    print(f"ERROR: Model returned invalid JSON — review failed")
     print(raw[:500])
-    sys.exit(0)
+    sys.exit(1)
 
 findings = review.get("findings", [])
 verdict = review.get("verdict", "APPROVE")
