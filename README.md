@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="https://spring-petclinic.github.io/images/spring-petclinic.png" alt="Spring Petclinic" width="200">
-</p>
-
-<h1 align="center">Harness Petclinic</h1>
+<h1 align="center">🐾 Harness Petclinic</h1>
 
 <p align="center">
   <strong>AI-Powered CI/CD with Multi-Stage Java Builds</strong><br>
