@@ -1,6 +1,6 @@
-import glob
 import json
 import os
+import subprocess
 import sys
 
 import requests
@@ -42,15 +42,45 @@ print("AI CODE REVIEW — Gemma 4 26B (on-prem via Ollama)")
 print("=" * 60)
 print()
 
-all_files = sorted(glob.glob("src/main/java/**/*.java", recursive=True))
-code_files = [f for f in all_files if "Controller" in f or "Configuration" in f or "Application" in f]
-code = ""
-for f in code_files:
-    with open(f) as fh:
-        code += f"\n### {f}\n{fh.read()}\n"
+diff = subprocess.run(
+    ["git", "diff", "origin/main", "--", "src/"],
+    capture_output=True, text=True,
+).stdout.strip()
+
+if not diff:
+    diff = subprocess.run(
+        ["git", "diff", "HEAD~1", "--", "src/"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+
+if not diff:
+    print("No code changes detected — skipping AI review.")
+    os.makedirs("/tmp/review", exist_ok=True)
+    for name, val in [
+        ("REVIEW_VERDICT", "APPROVED"),
+        ("REVIEW_MODEL", MODEL),
+        ("REVIEW_TOKENS", "0"),
+        ("REVIEW_TIME", "0s"),
+        ("REVIEW_FILES", "none"),
+        ("CRITICAL_COUNT", "0"),
+        ("WARNING_COUNT", "0"),
+        ("CRITICAL_FINDINGS", "None"),
+        ("WARNING_FINDINGS", "None"),
+    ]:
+        with open(f"/tmp/review/{name}", "w") as f:
+            f.write(val)
+    sys.exit(0)
+
+changed_files = subprocess.run(
+    ["git", "diff", "--name-only", "origin/main", "--", "src/"],
+    capture_output=True, text=True,
+).stdout.strip() or subprocess.run(
+    ["git", "diff", "--name-only", "HEAD~1", "--", "src/"],
+    capture_output=True, text=True,
+).stdout.strip()
 
 prompt = (
-    "You are a senior Java code reviewer. Review this Spring Boot application for:\n"
+    "You are a senior Java code reviewer. Review this DIFF for:\n"
     "1. Security vulnerabilities (OWASP Top 10)\n"
     "2. Code quality issues\n"
     "3. Performance concerns\n"
@@ -67,17 +97,18 @@ prompt = (
     "Return your review as JSON matching this schema.\n"
     "Set verdict to APPROVE if no CRITICAL or WARNING issues, "
     "otherwise REQUEST CHANGES.\n\n"
-    + code
+    + diff
 )
 
-print(f"Reviewing {len(code_files)} files")
+print(f"Reviewing diff: {changed_files}")
+print(f"Diff size: {len(diff)} chars")
 print(f"Model: {MODEL}")
 print()
 MAX_RETRIES = 3
 review = None
 
 for attempt in range(1, MAX_RETRIES + 1):
-    print(f"Sending code to AI model for security review (attempt {attempt}/{MAX_RETRIES})...")
+    print(f"Sending diff to AI model for security review (attempt {attempt}/{MAX_RETRIES})...")
     if attempt == 1:
         print("(This typically takes 15-25 seconds)")
     print()
@@ -90,9 +121,9 @@ for attempt in range(1, MAX_RETRIES + 1):
                 "prompt": prompt,
                 "format": REVIEW_SCHEMA,
                 "stream": False,
-                "options": {"temperature": 0.3, "num_predict": -1, "num_ctx": 32768},
+                "options": {"temperature": 0.3, "num_predict": 2048, "num_ctx": 32768},
             },
-            timeout=180,
+            timeout=120,
         )
         result = resp.json()
     except Exception as e:
@@ -181,7 +212,7 @@ for name, val in [
     ("REVIEW_MODEL", MODEL),
     ("REVIEW_TOKENS", str(tokens)),
     ("REVIEW_TIME", f"{duration}s"),
-    ("REVIEW_FILES", f"{len(code_files)} Java files"),
+    ("REVIEW_FILES", changed_files.replace("\n", ", ")),
     ("CRITICAL_COUNT", str(critical_count)),
     ("WARNING_COUNT", str(warning_count)),
     ("CRITICAL_FINDINGS", critical_titles or "None"),
