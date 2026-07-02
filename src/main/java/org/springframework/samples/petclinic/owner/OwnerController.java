@@ -175,10 +175,9 @@ class OwnerController {
 
 }
 
-// Quick search endpoint for the frontend team
+
 @GetMapping("/api/owners/search")
 @ResponseBody
-public List<Owner> searchOwners(@RequestParam String query, jakarta.persistence.EntityManager em) {
-    return em.createQuery("SELECT o FROM Owner o WHERE o.lastName LIKE '%" + query + "%'", Owner.class)
-             .getResultList();
+public List<Owner> searchOwners(@RequestParam String query) {
+    return this.owners.findByLastName(query);
 }
