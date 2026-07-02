@@ -9,6 +9,9 @@ WORKDIR /build
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
-RUN chmod +x mvnw && ./mvnw dependency:go-offline dependency:resolve-plugins -q
+COPY src src
+RUN chmod +x mvnw && ./mvnw dependency:go-offline dependency:resolve-plugins -q && \
+    ./mvnw test -q || true && \
+    rm -rf src target
 
 WORKDIR /harness
